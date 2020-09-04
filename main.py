@@ -1,5 +1,6 @@
 # This is a sample Python script.
 
+import logging
 # Press Shift+F10 to execute it or replace it with your code.
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 import os
@@ -9,6 +10,11 @@ from multiprocessing import Pool
 import requests
 from bs4 import BeautifulSoup
 from pythonping import ping
+
+path_file_log = "e:\\flibusta\\Update.log"  # Файл лога
+path_to_lib = r'e:\flibusta\_LIB.RUS.EC\librusec'
+
+logging.basicConfig(filename=path_file_log, format="%(asctime)s : %(levelname)s : %(message)s", level=logging.INFO)
 
 pr_ping = {}
 
@@ -77,6 +83,7 @@ class Flibusta_Day_Update(object):
             print(proxy, end=' > ')
             if self.get_page(proxy):
                 print('Pass')
+                logging.info('proxy {}'.format(self.current_proxy))
                 return True
             else:
                 print('Error')
@@ -90,40 +97,36 @@ class Flibusta_Day_Update(object):
             print(fn, end=' > ')
             if not fn in self.filelist:
                 self.get_day_file(fn)
+                logging.info('Download {} proxy {}'.format(fn, self.current_proxy))
                 update = True
                 print('Download')
             else:
                 print('Exist')
         if update:
             print('Update - Done')
+            logging.info('Update - Done')
         else:
             print('Update nothing')
+            logging.info('Update nothing')
 
     def get_day_file(self, fn):
-        # print('download file {}'.format(fn), end=' ')
-        # create the object, assign it to a variable
         proxy = urllib.request.ProxyHandler({'http': self.current_proxy})
-        # construct a new opener using your proxy settings
         opener = urllib.request.build_opener(proxy)
-        # install the openen on the module-level
         urllib.request.install_opener(opener)
-        # make a request
         urllib.request.urlretrieve(self.ulr_to_flibusta + fn, self.path_to_lib + '\\' + fn)
-        # print('Done.')
 
 
 def main():
+    logging.info(' ====Start====')
+
+    # получем и тестирует прокси
     proxy = Free_Proxys()
     proxy.run_test()
-    # print(proxy.pr_ping)
-    # pr = [('51.68.71.95:3128', 65.08),
-    #      ('205.185.127.8:8080', 182.41), ('181.129.198.196:999', 185.24), ('202.148.20.4:8080', 195.98),
-    #      ('61.8.78.130:8080', 197.47), ('101.255.103.201:53281', 206.15), ('103.209.230.129:8080', 240.68),
-    #      ('103.143.84.72:8080', 245.2), ('203.176.129.69:8080', 247.24), ('170.79.95.204:8080', 272.81),
-    #      ('177.43.217.74:8080', 281.59), ('36.73.72.47:8080', 314.46), ('181.209.82.154:23500', 326.15),
-    #      ('114.5.97.138:8080', 686.55), ('131.161.254.150:3128', 705.78), ('209.190.32.28:3128', 1105.64),
-    #      ('200.60.79.11:53281', 2000.0), ('52.251.47.125:3128', 2000.0)]
-    FDU = Flibusta_Day_Update(r'e:\flibusta\_LIB.RUS.EC\librusec', proxy.pr_ping)
+
+    # Обновление
+    FDU = Flibusta_Day_Update(path_to_lib, proxy.pr_ping)
+
+    logging.info(' ====Stop====')
 
 
 if __name__ == '__main__':

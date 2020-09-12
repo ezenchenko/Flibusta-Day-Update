@@ -38,13 +38,14 @@ class Free_Proxys(object):
         with open(r'e:\temp\proxy.txt', 'r') as f:
             lines = [line.strip() for line in f]
         self.proxy_list = [line.split() for line in lines[9:-2] if not 'RU' in line]
-        self.proxy_list = [ip for proxy in self.proxy_list for ip in proxy if ':' in ip]
+        self.proxy_list = [ip for proxy in self.proxy_list[0:30] for ip in proxy if
+                           ':' in ip]  # TODO удалить тестовое ограничение
         self.pr_ping = {proxy: 0 for proxy in self.proxy_list}
 
-    def run_test(self):
-        with Pool(processes=30) as pool:
+    def run_test(self, process_count=30):
+        with Pool(processes=process_count) as pool:
             self.pr_ping = dict(list(pool.map(test_proxy, self.pr_ping.copy())))
-        self.pr_ping = sorted(self.pr_ping.items(), key=lambda pr: pr[1])
+        self.pr_ping = dict(sorted(self.pr_ping.items(), key=lambda pr: pr[1]))
 
 
 class Flibusta_Day_Update(object):
@@ -55,16 +56,18 @@ class Flibusta_Day_Update(object):
 
         self.filelist = [fn for r, d, f in os.walk(path_to_lib) for fn in f[:] if '.zip' in fn]
         self.proxylist = proxylist
+        self.clear_not_working_proxy(crit_time=600)  # proxy with ping time > 600 - deleted
         self.ulr_to_flibusta = 'http://flibusta.is/daily/'
         self.page = ''
         self.current_proxy = ''
-        if not self.test_get_page():
+        if not self.find_working_proxy():
             print('error. Not load page!')
         else:
+            self.clear_not_working_proxy()  # proxy not working - deleted
             self.update_day_files()
 
     def get_page(self, proxy_test):
-        proxy, time = proxy_test
+        proxy = proxy_test
         # print(proxy)
         try:
             r = requests.get(self.ulr_to_flibusta, proxies={'http': 'http://' + proxy})
@@ -78,14 +81,19 @@ class Flibusta_Day_Update(object):
         except:
             return False
 
-    def test_get_page(self):
-        for proxy in self.proxylist:
+    def clear_not_working_proxy(self, crit_time=9000):  # del proxy from proxylist{} not doing
+        self.proxylist = {key: time for (key, time) in self.proxylist.items() if time < crit_time}
+
+    def find_working_proxy(self):
+        for proxy in self.proxylist.copy():
             print(proxy, end=' > ')
             if self.get_page(proxy):
                 print('Pass')
                 logging.info('proxy {}'.format(self.current_proxy))
                 return True
             else:
+                self.proxylist.pop(proxy)
+                # self.proxylist[proxy] = 9999
                 print('Error')
         return False
 
@@ -96,10 +104,13 @@ class Flibusta_Day_Update(object):
         for fn in day_file_list:
             print(fn, end=' > ')
             if not fn in self.filelist:
-                self.get_day_file(fn)
-                logging.info('Download {} proxy {}'.format(fn, self.current_proxy))
-                update = True
-                print('Download')
+                if self.retrieve_file(fn):
+                    logging.info('Download {} proxy {}'.format(fn, self.current_proxy))
+                    update = True
+                    print('Download')
+                else:
+                    logging.info('Not working proxy')
+                    return
             else:
                 print('Exist')
         if update:
@@ -109,11 +120,25 @@ class Flibusta_Day_Update(object):
             print('Update nothing')
             logging.info('Update nothing')
 
+    def retrieve_file(self, fn):
+        while self.get_day_file(fn):
+            if len(self.proxylist) == 1:
+                return False
+            del self.proxylist[self.current_proxy]
+            self.current_proxy = list(self.proxylist.keys())[0]
+            print('change proxy to {}'.format(self.current_proxy), end=' > ')
+        return True
+
     def get_day_file(self, fn):
-        proxy = urllib.request.ProxyHandler({'http': self.current_proxy})
-        opener = urllib.request.build_opener(proxy)
-        urllib.request.install_opener(opener)
-        urllib.request.urlretrieve(self.ulr_to_flibusta + fn, self.path_to_lib + '\\' + fn)
+        try:
+            print('retrieve file', end=' > ')
+            proxy = urllib.request.ProxyHandler({'http': self.current_proxy})
+            opener = urllib.request.build_opener(proxy)
+            urllib.request.install_opener(opener)
+            tmp = urllib.request.urlretrieve(self.ulr_to_flibusta + fn, self.path_to_lib + '\\' + fn)
+            return False
+        except Exception as e:
+            return True
 
 
 def main():
@@ -121,10 +146,10 @@ def main():
 
     # получем и тестирует прокси
     proxy = Free_Proxys()
-    proxy.run_test()
+    proxy.run_test(process_count=3)  # TODO Удалить тестовое ограничение
 
     # Обновление
-    FDU = Flibusta_Day_Update(path_to_lib, proxy.pr_ping)
+    Flibusta_Day_Update(path_to_lib, proxy.pr_ping)
 
     logging.info(' ====Stop====')
 

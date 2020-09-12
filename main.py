@@ -4,6 +4,7 @@ import logging
 # Press Shift+F10 to execute it or replace it with your code.
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 import os
+import time
 import urllib.request
 from multiprocessing import Pool
 
@@ -20,7 +21,7 @@ pr_ping = {}
 
 
 def test_proxy(proxy):
-    print(proxy)
+    # print(proxy)
     p = ping(proxy.split(':')[0]).rtt_avg_ms
     return (proxy, p)
 
@@ -30,7 +31,7 @@ class Free_Proxys(object):
         self.pr_ping = {}
         self.proxy_list = []
         self.get_proxy_list()
-        print(len(self.proxy_list))
+        print('Proxy count {}'.format(len(self.proxy_list)))
         # self.run_test()
 
     def get_proxy_list(self):
@@ -38,14 +39,14 @@ class Free_Proxys(object):
         with open(r'e:\temp\proxy.txt', 'r') as f:
             lines = [line.strip() for line in f]
         self.proxy_list = [line.split() for line in lines[9:-2] if not 'RU' in line]
-        self.proxy_list = [ip for proxy in self.proxy_list[0:30] for ip in proxy if
-                           ':' in ip]  # TODO удалить тестовое ограничение
+        self.proxy_list = [ip for proxy in self.proxy_list[:] for ip in proxy if ':' in ip]
         self.pr_ping = {proxy: 0 for proxy in self.proxy_list}
 
     def run_test(self, process_count=30):
         with Pool(processes=process_count) as pool:
             self.pr_ping = dict(list(pool.map(test_proxy, self.pr_ping.copy())))
         self.pr_ping = dict(sorted(self.pr_ping.items(), key=lambda pr: pr[1]))
+
 
 
 class Flibusta_Day_Update(object):
@@ -57,6 +58,7 @@ class Flibusta_Day_Update(object):
         self.filelist = [fn for r, d, f in os.walk(path_to_lib) for fn in f[:] if '.zip' in fn]
         self.proxylist = proxylist
         self.clear_not_working_proxy(crit_time=600)  # proxy with ping time > 600 - deleted
+        print('Proxy count < 600 ms {}'.format(len(self.proxylist)))
         self.ulr_to_flibusta = 'http://flibusta.is/daily/'
         self.page = ''
         self.current_proxy = ''
@@ -64,6 +66,7 @@ class Flibusta_Day_Update(object):
             print('error. Not load page!')
         else:
             self.clear_not_working_proxy()  # proxy not working - deleted
+            print('Count proxy passed {}'.format(len(self.proxylist)))
             self.update_day_files()
 
     def get_page(self, proxy_test):
@@ -86,15 +89,15 @@ class Flibusta_Day_Update(object):
 
     def find_working_proxy(self):
         for proxy in self.proxylist.copy():
-            print(proxy, end=' > ')
+            # print(proxy, end=' > ')
             if self.get_page(proxy):
-                print('Pass')
+                # print('Pass')
                 logging.info('proxy {}'.format(self.current_proxy))
                 return True
             else:
                 self.proxylist.pop(proxy)
                 # self.proxylist[proxy] = 9999
-                print('Error')
+                # print('Error')
         return False
 
     def update_day_files(self):
@@ -146,7 +149,7 @@ def main():
 
     # получем и тестирует прокси
     proxy = Free_Proxys()
-    proxy.run_test(process_count=3)  # TODO Удалить тестовое ограничение
+    proxy.run_test(process_count=25)
 
     # Обновление
     Flibusta_Day_Update(path_to_lib, proxy.pr_ping)
@@ -154,5 +157,27 @@ def main():
     logging.info(' ====Stop====')
 
 
+def test_time():
+    # получем и тестирует прокси
+
+    proxy = Free_Proxys()
+    for i in range(5, 50, 5):
+        e = time.clock()
+        proxy.run_test(process_count=i)
+        print(i, time.clock() - e)
+
+
+# 5 196.06496209699998
+# 10 109.95311797199997
+# 15 79.437627824
+# 20 60.26124019299999
+#                           !25 47.58588980500002! Оптимально
+# 30 44.90855763400003
+# 35 37.11979738100001
+# 40 36.013118125000005
+# 45 35.94224253300001
+
+
 if __name__ == '__main__':
     main()
+# test_time()

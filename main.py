@@ -14,6 +14,7 @@ from pythonping import ping
 
 path_file_log = "e:\\flibusta\\Update.log"  # Файл лога
 path_to_lib = r'e:\flibusta\_LIB.RUS.EC\librusec'
+path_to_file_temp = r'e:\temp\proxy.txt'
 
 logging.basicConfig(filename=path_file_log, format="%(asctime)s : %(levelname)s : %(message)s", level=logging.INFO)
 
@@ -36,7 +37,7 @@ class Free_Proxys(object):
 
     def get_proxy_list(self):
         urllib.request.urlretrieve('http://spys.me/proxy.txt', r'e:\temp\proxy.txt')
-        with open(r'e:\temp\proxy.txt', 'r') as f:
+        with open(path_to_file_temp, 'r') as f:
             lines = [line.strip() for line in f]
         self.proxy_list = [line.split() for line in lines[9:-2] if not 'RU' in line]
         self.proxy_list = [ip for proxy in self.proxy_list[:] for ip in proxy if ':' in ip]
